@@ -1,6 +1,9 @@
 import time
 import pyvisa
 
+#########################
+# update time: 2024-02-22
+
 class KS34465A:
     def __init__(self):
         self.rm = pyvisa.ResourceManager()
