@@ -2,6 +2,9 @@
 import serial,time
 import pyvisa as visa
 from device import device_programming
+
+#   update_time = 2024.02.28
+
 def DOpenPort(portx, bps, timeout):
     try:
         # 打开串口，并得到串口对象
