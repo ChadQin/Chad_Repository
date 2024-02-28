@@ -2,7 +2,7 @@ import serial
 import logging
 import re
 import csv
-from colorama import Fore,Back,Style
+from colorama import Fore, Back, Style
 from time import sleep
 from serial.tools import list_ports
 
