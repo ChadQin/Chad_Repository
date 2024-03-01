@@ -1,9 +1,39 @@
-import time
+import time,logging,datetime,os
 import pyvisa
 import serial
 
+
 #########################
 # update time: 2024-02-27
+
+
+def Logging_setup():
+    folder = "log"
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    # 设置将日志输出到文件中，并且定义文件内容
+    now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    if os.path.isdir(f"{folder}"):
+        pass
+    else:
+        try:
+            os.makedirs(folder)
+        except OSError as e:
+            print("无法创建文件夹：", str(e))
+
+    fileinfo = logging.FileHandler(os.getcwd() + f"\\{folder}\\Test_log_{now}.log")
+    fileinfo.setLevel(logging.INFO)
+    # 设置将日志输出到控制台
+    controlshow = logging.StreamHandler()
+    controlshow.setLevel(logging.INFO)
+    # 设置日志的格式
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s: %(message)s")
+    fileinfo.setFormatter(formatter)
+    controlshow.setFormatter(formatter)
+
+    logger.addHandler(fileinfo)
+    logger.addHandler(controlshow)
 
 
 class KS34465A:
@@ -33,6 +63,7 @@ class KS34465A:
     def get_volt_dc(self):
         #   获取DC电压档电压值
         volt = self.K34465A.query('MEAS:VOLT:DC?')
+
         return float(volt)
 
     def get_volt_ac(self):
@@ -50,6 +81,29 @@ class KS34465A:
         curr = self.K34465A.query('MEAS:CURR:AC?')
         return float(curr)
 
+    def measurement(self,function):
+        if function=='DCV':
+            Meas=self.K34465A.query('MEASUre:VOLTage:DC?')
+        if function=='DCI':
+            Meas = self.K34465A.query('MEASUre:CURRent:DC?')
+        if function == 'ACV':
+            Meas = self.K34465A.query('MEASUre:VOLTage:AC?')
+        if function == 'ACI':
+            Meas = self.K34465A.query('MEASUre:CURRent:AC?')
+        if function=='Res':
+            Meas=self.K34465A.query('MEASUre:RESistance?')
+        Meas_Result = float(Meas)
+        return Meas_Result
+
+    def local(self):
+        self.K34465A.write('SYST:LOC')
+
+    def text_function(self,cmd):
+        if '?' in cmd:
+            read = self.K34465A.query(cmd)
+            return read
+        else:
+            self.K34465A.write(cmd)
 
 class IT8812B:
     def __init__(self):
@@ -203,6 +257,10 @@ class _TekOsc:
         self.tek_osc.write('AUTOSET EXECUTE\n')
 #       self.tek_osc.write('DISplay:INTENSITy:WAVEform 75\n')
 
+    def text_function(self,cmd):
+        self.tek_osc.write(cmd)
+
+
 
 class _CYHRSignalSource:
     def __init__(self, portx, bps, timeout):
@@ -210,7 +268,7 @@ class _CYHRSignalSource:
         self.ser = serial.Serial(portx, bps, timeout=timeout)
 
     def write_data(self, msg):
-        print('CMD: {}'.format(msg))
+        logging.info('CMD: {}'.format(msg))
         self.ser.write('{}\n'.format(msg).encode('utf-8'))
 
     def read_data(self):
@@ -223,9 +281,9 @@ class _CYHRSignalSource:
         self.hex_data = hex(dec)[2:]
         return self.hex_data.upper()
 
-    def full_8byte_hex(self, hex_data):
+    def full_byte_hex(self, len_byte, hex_data):
         if 8 - len(hex_data) > 0:
-            self.hex_data = '0' * (8 - len(hex_data)) + hex_data
+            self.hex_data = '0' * (len_byte - len(hex_data)) + hex_data
         return self.hex_data.upper()
 
     def confirm_connect(self):
@@ -233,9 +291,9 @@ class _CYHRSignalSource:
         self.read_data()
 
     def single_output(self, freq, pow_input, level):
-        wave_freq = self.full_8byte_hex(self.hex_convert(freq))
+        wave_freq = self.full_byte_hex(8, self.hex_convert(freq))
         self.write_data('<FRQ{}>'.format(wave_freq))
-        wave_pow = self.hex_convert(pow_input)
+        wave_pow = self.full_byte_hex(4, self.hex_convert(pow_input))
         self.write_data('<POW{}{}>'.format(level, wave_pow))
 
     def stop(self):
